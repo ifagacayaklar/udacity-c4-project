@@ -12,7 +12,7 @@ const logger = createLogger('auth')
 // TODO: Provide a URL that can be used to download a certificate that can be used
 // to verify JWT token signature.
 // To get this URL you need to go to an Auth0 page -> Show Advanced Settings -> Endpoints -> JSON Web Key Set
-const jwksUrl = '...'
+const jwksUrl = 'https://dev-ifa.eu.auth0.com/.well-known/jwks.json'
 
 export const handler = async (
   event: CustomAuthorizerEvent
@@ -61,7 +61,10 @@ async function verifyToken(authHeader: string): Promise<JwtPayload> {
   // TODO: Implement token verification
   // You should implement it similarly to how it was implemented for the exercise for the lesson 5
   // You can read more about how to do this here: https://auth0.com/blog/navigating-rs256-and-jwks/
-  return undefined
+  const { header } = jwt;
+  const cert = await getCertificate (header.kid)
+
+  return verify(token, cert, { algorithms: ['RS256'] }) as JwtPayload
 }
 
 function getToken(authHeader: string): string {
@@ -75,3 +78,22 @@ function getToken(authHeader: string): string {
 
   return token
 }
+
+function certToPEM( cert: string ) {
+  let pem = cert.match( /.{1,64}/g ).join( '\n' );
+  pem = `-----BEGIN CERTIFICATE-----\n${ cert }\n-----END CERTIFICATE-----\n`;
+  return pem;
+}
+
+async function getCertificate (kid : string){
+  const jwks = await Axios.get(jwksUrl)
+  const keys = jwks.data.keys
+  const signingKeys = keys
+  .filter(key => key.use === 'sig' // JWK property `use` determines the JWK is for signature verification
+  && key.kty === 'RSA' // We are only supporting RSA (RS256)
+  && key.kid === kid          // The `kid` must be present to be useful for later
+  && ((key.x5c && key.x5c.length) || (key.n && key.e)) // Has useful public keys
+  )
+  return certToPEM(signingKeys[0].x5c[0])
+}
+
