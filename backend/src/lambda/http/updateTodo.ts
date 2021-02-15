@@ -1,21 +1,17 @@
 import 'source-map-support/register'
 import { APIGatewayProxyEvent, APIGatewayProxyHandler, APIGatewayProxyResult } from 'aws-lambda'
-import * as AWS  from 'aws-sdk'
 import { UpdateTodoRequest } from '../../requests/UpdateTodoRequest'
 import { createLogger } from '../../utils/logger'
 import {getUserId} from '../utils'
+import {updateTodo} from '../../businessLogic/todos';
+
 
 const logger = createLogger('getTodos')
-
-const docClient = new AWS.DynamoDB.DocumentClient()
-const todosTable = process.env.TODOS_TABLE
 
 export const handler: APIGatewayProxyHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   logger.info("Processing event", event)
 
-  // TODO: correct it for dev
   const userId = getUserId(event)  
-  // const userId = "admin" 
   const todoId = event.pathParameters.todoId
   const updatedTodo: UpdateTodoRequest = JSON.parse(event.body)
 
@@ -44,25 +40,8 @@ export const handler: APIGatewayProxyHandler = async (event: APIGatewayProxyEven
       body: ''
     }
   }
-
 }
 
 
-async function updateTodo(userId: string, todoId: string, updatedTodo: UpdateTodoRequest) {
-  await docClient.update({
-    TableName:todosTable,
-    Key:{
-        "userId": userId,
-        "todoId": todoId
-    }, 
-    UpdateExpression: "set #namefield = :name, dueDate = :dueDate, done = :done",
-    ExpressionAttributeValues:{
-      ":name": updatedTodo.name,
-      ":dueDate": updatedTodo.dueDate,
-      ":done": updatedTodo.done
-    },
-    ExpressionAttributeNames:
-    { "#namefield": "name" },
-  }).promise()
-}
+
 
